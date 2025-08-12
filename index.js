@@ -282,7 +282,9 @@ async function plantCrops() {
         if (cropBlock.name !== 'air') continue
 
         const distance = bot.entity.position.distanceTo(area.soilPos)
-        if (distance > 5) continue
+        if (distance > 4) {
+            await bot.pathfinder.goto(new goals.GoalXZ(area.soilPos.x, area.soilPos.z))
+        }
 
         // 切换到种子物品
         try {
@@ -389,7 +391,7 @@ async function storeItems() {
     let currentSeedName = cropTypes[currentCrop]
 
     let seed_count = 0;
-    let itemGToKeep = 2;
+    let itemGToKeep = 3;
     for (const item of inventoryItems) {
 
         if (item.name === currentSeedName) {
