@@ -172,10 +172,7 @@ async function plantCrops() {
 
     const seedItem = cropTypes[currentCrop]
 
-    if (!seeds) {
-        bot.chat(`背包中没有 ${seedItem}，请补充种子`)
-        return false
-    }
+
 
 
     let plantedCount = 0
@@ -198,6 +195,10 @@ async function plantCrops() {
         // 切换到种子物品
         try {
             const seeds = bot.inventory.items().find(item => item.name === seedItem)
+            if (!seeds) {
+                bot.chat(`背包中没有 ${seedItem}，请补充种子`)
+                return false
+            }
             await bot.equip(seeds, 'hand')
             // bot.chat(`已切换到 ${seedItem}`)
         } catch (equipError) {
