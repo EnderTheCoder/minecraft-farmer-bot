@@ -20,7 +20,7 @@
 docker pull your-image-name
 
 # 运行默认配置
-docker run --name farm-bot minecraft-farm-bot
+docker run --name farm-bot enderthecoder/minecraft-farm-bot
 
 # 自定义配置运行
 docker run --name farm-bot \
@@ -35,7 +35,7 @@ docker run --name farm-bot \
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/minecraft-farm-bot.git
+git clone https://github.com/EnderTheCoder/minecraft-farmer-bot
 cd minecraft-farm-bot
 
 # 安装依赖
@@ -47,16 +47,16 @@ npm start
 
 ## 环境变量配置
 
-| 变量名 | 默认值 | 描述 |
-|--------|--------|------|
-| `MINECRAFT_HOST` | `cloud4.ender.cool` | Minecraft 服务器地址 |
-| `MINECRAFT_PORT` | `25565` | Minecraft 服务器端口 |
-| `MINECRAFT_USERNAME` | `FarmerBot` | 机器人用户名 |
-| `MINECRAFT_VERSION` | `1.21.5` | Minecraft 版本 |
-| `MINECRAFT_PASSWORD` | `undefined` | 账户密码（可选） |
-| `MINECRAFT_AUTH` | `mojang` | 认证方式 (mojang 或 microsoft) |
-| `RECONNECT_MAX_ATTEMPTS` | `10` | 最大重连尝试次数 |
-| `RECONNECT_DELAY` | `5000` | 重连间隔（毫秒） |
+| 变量名                      | 默认值                 | 描述                        |
+|--------------------------|---------------------|---------------------------|
+| `MINECRAFT_HOST`         | `cloud4.ender.cool` | Minecraft 服务器地址           |
+| `MINECRAFT_PORT`         | `25565`             | Minecraft 服务器端口           |
+| `MINECRAFT_USERNAME`     | `FarmerBot`         | 机器人用户名                    |
+| `MINECRAFT_VERSION`      | `1.21.5`            | Minecraft 版本              |
+| `MINECRAFT_PASSWORD`     | `undefined`         | 账户密码（可选）                  |
+| `MINECRAFT_AUTH`         | `mojang`            | 认证方式 (mojang 或 microsoft) |
+| `RECONNECT_MAX_ATTEMPTS` | `10`                | 最大重连尝试次数                  |
+| `RECONNECT_DELAY`        | `5000`              | 重连间隔（毫秒）                  |
 
 ## 使用指令
 
@@ -75,27 +75,34 @@ npm start
 ## 功能详解
 
 ### 全自动种植模式
+
 ```bash
 /plant wheat
 ```
+
 启动后机器人会循环执行：
+
 1. 扫描耕地区域
 2. 收获成熟的作物
 3. 种植空闲的土地
 4. 自动存储收获的作物
 
 ### 自动进食
+
 机器人会自动检查食物值：
+
 - 食物值低于18时自动进食
 - 优先食用背包中的食物
 - 吃到食物值满为止
 
 ### 断线重连
+
 - 网络断开后自动重连
 - 保持之前的自动种植状态
 - 重连后自动恢复操作
 
 ### 玩家跟随
+
 - 保持与玩家的安全距离
 - 自动寻路跟随
 
@@ -125,11 +132,13 @@ minecraft-farm-bot/
 ## 构建和部署
 
 ### 构建 Docker 镜像
+
 ```bash
 docker build -t minecraft-farm-bot .
 ```
 
 ### 推送到 Docker Hub
+
 ```bash
 docker tag minecraft-farm-bot your-username/minecraft-farm-bot:latest
 docker push your-username/minecraft-farm-bot:latest
@@ -149,6 +158,7 @@ A: 确保机器人背包中有种子，并且脚下有耕地
 A: 检查服务器状态和认证信息
 
 ### 日志查看
+
 ```bash
 # Docker 容器日志
 docker logs farm-bot
@@ -160,6 +170,7 @@ docker logs -f farm-bot
 ## 开发
 
 ### 本地开发环境
+
 ```bash
 # 安装开发依赖
 npm install --save-dev nodemon
@@ -169,6 +180,7 @@ npm run dev
 ```
 
 ### 代码结构
+
 - 主要逻辑在 `farm-bot.js` 文件中
 - 模块化设计，易于扩展新功能
 - 支持错误处理和异常恢复
