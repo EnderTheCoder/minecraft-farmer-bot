@@ -84,6 +84,7 @@ bot.on('chat', async (username, message) => {
             currentCrop = cropType
             isAutoMode = true
             bot.chat(`启动全自动模式，开始循环种植、收获、存储 ${cropType}`)
+            bot.chat('注意：将保留至少2组种子在背包中')
             await scanFarmingAreas()
             startAutoMode()
             break
@@ -176,6 +177,12 @@ function isCropMature(block) {
     return block.metadata >= matureState
 }
 
+// 获取指定物品的数量
+function getItemCount(itemName) {
+    const items = bot.inventory.items().filter(item => item.name === itemName)
+    return items.reduce((total, item) => total + item.count, 0)
+}
+
 // 种植作物
 async function plantCrops() {
     if (!currentCrop) {
@@ -184,17 +191,28 @@ async function plantCrops() {
     }
 
     const seedItem = cropTypes[currentCrop]
-    const seeds = bot.inventory.items().find(item => item.name === seedItem)
+    const seedCount = getItemCount(seedItem)
 
-    if (!seeds) {
-        bot.chat(`背包中没有 ${seedItem}，请补充种子`)
+    // 保留至少2组种子（1组=64个）
+    const reservedSeeds = 128 // 2组种子
+    const availableSeeds = seedCount - reservedSeeds
+
+    if (availableSeeds <= 0) {
+        bot.chat(`背包中种子不足（当前: ${seedCount}, 需要保留: ${reservedSeeds}）`)
         return false
     }
 
+    bot.chat(`可用种子: ${availableSeeds} 个（总: ${seedCount}，保留: ${reservedSeeds}）`)
+
     let plantedCount = 0
+    let seedsToUse = availableSeeds
 
     for (const [posKey, area] of farmingAreas) {
         if (area.hasCrop) continue
+        if (seedsToUse <= 0) {
+            bot.chat('可用种子已用完，停止种植')
+            break
+        }
 
         const soilBlock = bot.blockAt(area.soilPos)
         const cropBlock = bot.blockAt(area.cropPos)
@@ -210,15 +228,10 @@ async function plantCrops() {
 
             await bot.placeBlock(soilBlock, new Vec3(0, 1, 0))
             plantedCount++
+            seedsToUse--
 
             area.hasCrop = true
             area.cropType = currentCrop
-
-            const remainingSeeds = bot.inventory.items().find(item => item.name === seedItem)
-            if (!remainingSeeds || remainingSeeds.count <= 0) {
-                bot.chat('种子不足，停止种植')
-                break
-            }
 
             await new Promise(resolve => setTimeout(resolve, 200))
 
@@ -227,7 +240,8 @@ async function plantCrops() {
         }
     }
 
-    bot.chat(`成功种植 ${plantedCount} 株 ${currentCrop}`)
+    const remainingSeeds = getItemCount(seedItem)
+    bot.chat(`成功种植 ${plantedCount} 株 ${currentCrop}，剩余种子: ${remainingSeeds} 个`)
     return plantedCount > 0
 }
 
@@ -251,7 +265,7 @@ async function harvestCrops() {
 
             const distance = bot.entity.position.distanceTo(area.cropPos)
             if (distance > 5) continue
-
+            await moveToLocation(area.cropPos, 1)
             await bot.dig(cropBlock, true)
             harvestedCount++
 
@@ -279,7 +293,7 @@ async function harvestCrops() {
 async function storeItems() {
     const chestBlocks = bot.findBlocks({
         matching: (block) => {
-            return block.name === 'chest' || block.name === 'trapped_chest' && bot.canSeeBlock(block)
+            return (block.name === 'chest' || block.name === 'trapped_chest') && bot.canSeeBlock(block)
         },
         maxDistance: 32,
         count: 10
@@ -307,16 +321,19 @@ async function storeItems() {
 
             const chest = await bot.openContainer(chestBlock)
 
-            // 简化版物品存储，避免版本兼容问题
+            // 获取背包物品列表
             const inventoryItems = bot.inventory.items()
 
             for (const item of inventoryItems) {
-                // 检查是否是需要存储的作物相关物品
-                if (Object.values(cropTypes).includes(item.name) ||
-                    ['wheat', 'carrot', 'potato', 'beetroot', 'pumpkin', 'melon_slice'].includes(item.name)) {
+                // 跳过种子，保留种子在背包中
+                const seedNames = Object.values(cropTypes)
+                if (seedNames.includes(item.name)) {
+                    continue
+                }
 
+                // 只存储作物相关物品
+                if (['wheat', 'carrot', 'potato', 'beetroot', 'pumpkin', 'melon_slice'].includes(item.name)) {
                     try {
-                        // 直接使用item.type和item.count，避免获取附魔信息
                         await chest.deposit(item.type, null, item.count)
                         storedCount += item.count
                         console.log(`存储 ${item.count} 个 ${item.name}`)
@@ -343,9 +360,9 @@ async function storeItems() {
 }
 
 // 移动到指定位置
-function moveToLocation(targetPos) {
+function moveToLocation(targetPos, distance=3) {
     return new Promise((resolve) => {
-        const goal = new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 3)
+        const goal = new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, distance)
         bot.pathfinder.setGoal(goal)
 
         const timeout = setTimeout(() => {
@@ -368,11 +385,18 @@ function showStatus() {
     const cropCount = Array.from(farmingAreas.values()).filter(area => area.hasCrop).length
     const matureCount = Array.from(farmingAreas.values()).filter(area => area.isMature).length
 
+    let seedInfo = ''
+    if (currentCrop) {
+        const seedItem = cropTypes[currentCrop]
+        const seedCount = getItemCount(seedItem)
+        seedInfo = `当前种子: ${seedCount} 个 `
+    }
+
     bot.chat(`=== 农场状态 ===`)
     bot.chat(`耕地区域: ${farmingAreas.size} 块`)
     bot.chat(`已种植作物: ${cropCount} 株`)
     bot.chat(`成熟作物: ${matureCount} 株`)
-    bot.chat(`当前作物: ${currentCrop || '未指定'}`)
+    bot.chat(`当前作物: ${currentCrop || '未指定'} ${seedInfo}`)
     bot.chat(`跟随状态: ${isFollowing ? '开启' : '关闭'}`)
     bot.chat(`自动模式: ${isAutoMode ? '运行中' : '已停止'}`)
 }
@@ -399,7 +423,7 @@ async function startAutoMode() {
         if (emptyAreas.length > 0) {
             const success = await plantCrops()
             if (!success) {
-                bot.chat('种子不足，等待补充...')
+                bot.chat('种子不足（已保留2组），等待补充...')
             }
         }
 
@@ -408,7 +432,7 @@ async function startAutoMode() {
         bot.chat(`自动模式出错: ${error.message}`)
     }
 
-    // 15秒后继续循环（给更多时间处理存储）
+    // 15秒后继续循环
     if (isAutoMode) {
         autoModeTimer = setTimeout(startAutoMode, 15000)
     }
