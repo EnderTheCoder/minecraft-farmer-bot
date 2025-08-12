@@ -173,8 +173,6 @@ async function plantCrops() {
     const seedItem = cropTypes[currentCrop]
 
 
-
-
     let plantedCount = 0
 
     for (const [posKey, area] of farmingAreas) {
@@ -187,7 +185,9 @@ async function plantCrops() {
         if (cropBlock.name !== 'air') continue
 
         // try {
-        await bot.pathfinder.goto(new goals.GoalXZ(area.soilPos.x, area.soilPos.z))
+        if (!bot.canDigBlock(soilBlock)) {
+            await bot.pathfinder.goto(new goals.GoalXZ(area.soilPos.x, area.soilPos.z))
+        }
 
         const distance = bot.entity.position.distanceTo(area.soilPos)
         if (distance > 5) continue
@@ -205,7 +205,13 @@ async function plantCrops() {
             bot.chat(`切换到 ${seedItem} 失败: ${equipError.message}`)
             return false
         }
-        await bot.placeBlock(soilBlock, new Vec3(0, 1, 0))
+        // const startTime = performance.now();
+
+        await bot.placeBlock(soilBlock, new Vec3(0, 1, 0)) // it's slow
+        // const endTime = performance.now();
+        // const executionTime = endTime - startTime;
+        // console.log(`代码执行时间: ${executionTime} 毫秒`);
+
         plantedCount++
 
         area.hasCrop = true
@@ -245,7 +251,9 @@ async function harvestCrops() {
         if (!isCropMature(cropBlock)) continue
 
         try {
-            await bot.pathfinder.goto(new goals.GoalXZ(area.cropPos.x, area.cropPos.z))
+            if (!bot.canDigBlock(cropBlock)) {
+                await bot.pathfinder.goto(new goals.GoalXZ(area.cropPos.x, area.cropPos.z))
+            }
             await bot.dig(cropBlock, true)
             harvestedCount++
 
@@ -269,8 +277,6 @@ async function harvestCrops() {
     return harvestedCount > 0
 }
 
-// 存储物品到箱子 - 修改为保留至少两组种子
-// 存储物品到箱子 - 修改为保留至少两组种子
 async function storeItems() {
     const chestBlocks = bot.findBlocks({
         matching: (block) => {
@@ -291,62 +297,95 @@ async function storeItems() {
         return distA - distB
     })
 
-    let storedCount = 0
+    // 获取背包中的所有物品
+    const inventoryItems = bot.inventory.items()
 
-    for (const chestPos of sortedChests) {
+    // 筛选出需要存储的物品
+    const itemsToStore = []
+    let hasItemsToStore = false
+
+    let currentSeedName = cropTypes[currentCrop]
+
+    let seed_count = 0;
+    let itemGToKeep = 2;
+    for (const item of inventoryItems) {
+
+        if (item.name === currentSeedName) {
+            if (itemGToKeep > 0) {
+                itemGToKeep -= 1;
+            } else {
+                itemsToStore.push({
+                    item: item, storeCount: item.count, type: item.type
+                })
+                hasItemsToStore = true
+            }
+            seed_count += item.count;
+        } else {
+            // 非作物相关物品全部存储
+            itemsToStore.push({
+                item: item, storeCount: item.count, type: item.type
+            })
+            hasItemsToStore = true
+        }
+
+    }
+
+
+
+
+    if (!hasItemsToStore) {
+        bot.chat('没有需要存储的物品')
+        return false
+    }
+
+    let storedCount = 0
+    let chestIndex = 0
+
+    // 处理所有需要存储的物品
+    while (itemsToStore.length > 0 && chestIndex < sortedChests.length) {
+        const chestPos = sortedChests[chestIndex]
         const chestBlock = bot.blockAt(chestPos)
-        if (!chestBlock) continue
+        if (!chestBlock) {
+            chestIndex++
+            continue
+        }
 
         try {
             await bot.pathfinder.goto(new goals.GoalXZ(chestPos.x, chestPos.z))
             const chest = await bot.openContainer(chestBlock)
 
-            // 获取背包中的所有物品
-            const inventoryItems = bot.inventory.items()
+            // 处理当前箱子能存放的物品
+            for (let i = itemsToStore.length - 1; i >= 0; i--) {
+                const itemInfo = itemsToStore[i]
+                const {item, storeCount, type} = itemInfo
 
-            for (const item of inventoryItems) {
+                if (storeCount <= 0) {
+                    itemsToStore.splice(i, 1)
+                    continue
+                }
+
                 try {
-                    // 计算需要保留的数量
-                    let keepCount = 0
-
-                    // 如果是种子，保留至少2组（通常是128个）
-                    const seedItems = Object.values(cropTypes)
-                    if (seedItems.includes(item.name)) {
-                        keepCount = 128 // 保留2组种子（每组64个）
-                    }
-
-                    // 计算可以存储的数量
-                    const storeCount = Math.max(0, item.count - keepCount)
-
-                    // 检查是否是需要存储的作物相关物品
-                    const validItems = [...Object.values(cropTypes), // 种子
-                        'wheat', 'carrot', 'potato', 'beetroot' // 成熟作物
-                    ]
-
-                    if (validItems.includes(item.name)) {
-                        if (storeCount > 0) {
-                            try {
-                                await chest.deposit(item.type, null, storeCount)
-                                storedCount += storeCount
-                                console.log(`存储 ${storeCount} 个 ${item.name} (保留 ${keepCount} 个)`)
-                            } catch (depositError) {
-                                console.log(`存储 ${item.name} 失败: ${depositError.message}`)
-                            }
-                        } else {
-                            console.log(`保留 ${item.name}: ${item.count} 个 (无需存储)`)
-                        }
-                    }
-                } catch (itemError) {
-                    console.log(`处理物品 ${item.name} 失败:`, itemError.message)
+                    await chest.deposit(type, null, storeCount)
+                    storedCount += storeCount
+                    console.log(`存储 ${storeCount} 个 ${item.name}`)
+                    itemsToStore.splice(i, 1) // 移除已存储的物品
+                } catch (depositError) {
+                    console.log(`存储 ${item.name} 失败: ${depositError.message}`)
                 }
             }
 
             chest.close()
 
+            // 如果所有物品都已存储完毕，停止打开更多箱子
+            if (itemsToStore.length === 0) {
+                break
+            }
+
         } catch (error) {
             console.log(`打开箱子失败: ${error.message}`)
         }
 
+        chestIndex++
         // 处理完一个箱子后短暂等待
         await new Promise(resolve => setTimeout(resolve, 1000))
     }
