@@ -139,17 +139,17 @@ async function scanFarmingAreas() {
         })
     }
 
-    bot.chat(`发现 ${farmingAreas.size} 块耕地`)
-
-    const chestBlocks = bot.findBlocks({
-        matching: (block) => {
-            if (block.name !== 'chest' && block.name !== 'trapped_chest') return false;
-            if (block.position === null) return false;
-            return block.position.y > bot.player.entity.position.y;
-        }, maxDistance: 10, count: 10, useExtraInfo: true
-    })
-
-    bot.chat(`发现 ${chestBlocks.length} 个箱子`)
+    // bot.chat(`发现 ${farmingAreas.size} 块耕地`)
+    //
+    // const chestBlocks = bot.findBlocks({
+    //     matching: (block) => {
+    //         if (block.name !== 'chest' && block.name !== 'trapped_chest') return false;
+    //         if (block.position === null) return false;
+    //         return block.position.y > bot.player.entity.position.y;
+    //     }, maxDistance: 10, count: 10, useExtraInfo: true
+    // })
+    //
+    // bot.chat(`发现 ${chestBlocks.length} 个箱子`)
 }
 
 // 检查作物是否成熟
