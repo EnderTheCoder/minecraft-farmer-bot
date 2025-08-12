@@ -17,7 +17,7 @@
 
 ```bash
 # 拉取镜像
-docker pull your-image-name
+docker pull enderthecoder/minecraft-farm-bot
 
 # 运行默认配置
 docker run --name farm-bot enderthecoder/minecraft-farm-bot
@@ -28,7 +28,7 @@ docker run --name farm-bot \
   -e MINECRAFT_PORT=25565 \
   -e MINECRAFT_USERNAME="YourBotName" \
   -e MINECRAFT_VERSION="1.21.5" \
-  minecraft-farm-bot
+  enderthecoder/minecraft-farm-bot
 ```
 
 ### 本地运行
@@ -129,20 +129,14 @@ minecraft-farm-bot/
 }
 ```
 
-## 构建和部署
+## 构建
 
 ### 构建 Docker 镜像
 
 ```bash
-docker build -t minecraft-farm-bot .
+docker build -t enderthecoder/minecraft-farm-bot .
 ```
 
-### 推送到 Docker Hub
-
-```bash
-docker tag minecraft-farm-bot your-username/minecraft-farm-bot:latest
-docker push your-username/minecraft-farm-bot:latest
-```
 
 ## 故障排除
 
