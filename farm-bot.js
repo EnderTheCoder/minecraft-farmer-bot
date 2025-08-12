@@ -4,14 +4,19 @@ const {pathfinder, Movements, goals} = require('mineflayer-pathfinder')
 
 // 服务器配置
 const serverConfig = {
-    host: 'cloud4.ender.cool', port: 25565, username: 'FarmerBot', version: '1.21.5'
+    host: process.env.MINECRAFT_HOST || 'localhost',
+    port: parseInt(process.env.MINECRAFT_PORT) || 25565,
+    username: process.env.MINECRAFT_USERNAME || 'FarmerBot',
+    version: process.env.MINECRAFT_VERSION || '1.21.5',
+    // password: process.env.MINECRAFT_PASSWORD || undefined,
+    // auth: process.env.MINECRAFT_AUTH || 'microsoft',
 }
 
 // 重连配置
 const reconnectConfig = {
-    maxAttempts: 10, // 最大重连次数
-    delay: 5000,     // 重连间隔（毫秒）
-    attempts: 0      // 当前重连次数
+    maxAttempts: parseInt(process.env.RECONNECT_MAX_ATTEMPTS) || 10,
+    delay: parseInt(process.env.RECONNECT_DELAY) || 5000,
+    attempts: 0
 }
 
 let bot = null
