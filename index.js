@@ -4,10 +4,7 @@ const {pathfinder, Movements, goals} = require('mineflayer-pathfinder')
 
 // 服务器配置
 const serverConfig = {
-    host: 'cloud4.ender.cool',
-    port: 25565,
-    username: 'FarmerBot',
-    version: '1.21.5'
+    host: 'cloud4.ender.cool', port: 25565, username: 'FarmerBot', version: '1.21.5'
 }
 
 // 重连配置
@@ -28,6 +25,9 @@ let currentCrop = null
 let isAutoMode = false
 let autoModeTimer = null
 
+// 可食用的食物列表
+const edibleFoods = ['bread', 'cooked_beef', 'cooked_chicken', 'cooked_porkchop', 'apple', 'golden_apple', 'enchanted_golden_apple', 'carrot', 'potato', 'baked_potato', 'cookie', 'melon_slice', 'beef', 'chicken', 'porkchop', 'cod', 'salmon', 'tropical_fish', 'pufferfish', 'cooked_cod', 'cooked_salmon', 'mushroom_stew', 'rabbit', 'cooked_rabbit', 'rabbit_stew', 'mutton', 'cooked_mutton', 'beetroot', 'beetroot_soup', 'sweet_berries', 'honey_bottle']
+
 // 作物类型映射 - 只保留小麦、胡萝卜、马铃薯、甜菜根
 const cropTypes = {
     'wheat': 'wheat_seeds', 'carrot': 'carrot', 'potato': 'potato', 'beetroot': 'beetroot_seeds'
@@ -47,6 +47,54 @@ function createBot() {
 
     // 注册事件监听器
     registerBotEvents()
+}
+
+// 自动进食函数
+async function autoEat() {
+    // 检查当前食物值
+    const foodLevel = bot.food
+    console.log(`当前食物值: ${foodLevel}/20`)
+
+    // 如果食物值已满，不需要进食
+    if (foodLevel >= 20) {
+        return
+    }
+
+    // 查找背包中的食物
+    const foods = bot.inventory.items().filter(item => edibleFoods.includes(item.name))
+
+    if (foods.length === 0) {
+        console.log('背包中没有可食用的食物')
+        return
+    }
+
+    // 选择第一个找到的食物
+    const foodItem = foods[0]
+    console.log(`找到食物: ${foodItem.name}, 数量: ${foodItem.count}`)
+
+    try {
+        // 装备食物
+        await bot.equip(foodItem, 'hand')
+        console.log('已装备食物')
+
+        // 开始进食
+        bot.activateItem()
+        console.log('开始进食...')
+
+        // 等待进食完成（大约1.6秒）
+        await new Promise(resolve => setTimeout(resolve, 1600))
+
+        // 检查食物值是否已满
+        if (bot.food >= 20) {
+            console.log('食物值已满')
+        } else {
+            console.log(`当前食物值: ${bot.food}/20，继续检查是否需要进食`)
+            // 递归检查是否还需要继续进食
+            await autoEat()
+        }
+    } catch (error) {
+        console.log(`进食失败: ${error.message}`)
+    }
 }
 
 // 注册bot事件监听器
@@ -118,8 +166,13 @@ function registerBotEvents() {
                 showStatus()
                 break
 
+            case 'eat':
+                bot.chat('开始检查并进食...')
+                await autoEat()
+                break
+
             default:
-                bot.chat('可用指令: follow, stop, plant <作物>, harvest, store, scan, status')
+                bot.chat('可用指令: follow, stop, plant <作物>, harvest, store, scan, status, eat')
         }
     })
 
@@ -170,6 +223,18 @@ function registerBotEvents() {
         }
     })
 
+    // 食物值变化监听
+    bot.on('health', () => {
+        // 当食物值降低时自动检查是否需要进食
+        if (bot.food < 18) { // 当食物值低于18时考虑进食
+            console.log(`食物值变化: ${bot.food}/20`)
+            // 在空闲时自动进食
+            if (!isAutoMode) {
+                autoEat().catch(console.error)
+            }
+        }
+    })
+
     // 错误处理
     bot.on('kicked', (reason, loggedIn) => {
         console.log('被踢出服务器:', reason)
@@ -212,7 +277,7 @@ function handleDisconnect(reason) {
     }
 
     reconnectConfig.attempts++
-    console.log(`第 ${reconnectConfig.attempts} 次重连尝试，${reconnectConfig.delay/1000}秒后重连...`)
+    console.log(`第 ${reconnectConfig.attempts} 次重连尝试，${reconnectConfig.delay / 1000}秒后重连...`)
 
     setTimeout(() => {
         console.log('正在重新连接...')
@@ -268,6 +333,9 @@ async function plantCrops() {
         return false
     }
 
+    // 在种植前检查是否需要进食
+    await autoEat()
+
     const seedItem = cropTypes[currentCrop]
 
     let plantedCount = 0
@@ -321,6 +389,9 @@ async function plantCrops() {
 
 // 收获作物
 async function harvestCrops() {
+    // 在收获前检查是否需要进食
+    await autoEat()
+
     let harvestedCount = 0
 
     for (const [posKey, area] of farmingAreas) {
@@ -362,6 +433,9 @@ async function harvestCrops() {
 }
 
 async function storeItems() {
+    // 在存储前检查是否需要进食
+    await autoEat()
+
     const chestBlocks = bot.findBlocks({
         matching: (block) => {
             if (block.name !== 'chest' && block.name !== 'trapped_chest') return false;
@@ -404,7 +478,7 @@ async function storeItems() {
                 hasItemsToStore = true
             }
             seed_count += item.count;
-        } else {
+        } else if (item.name !== 'bread') {
             // 非作物相关物品全部存储
             itemsToStore.push({
                 item: item, storeCount: item.count, type: item.type
@@ -492,6 +566,7 @@ function showStatus() {
     bot.chat(`当前作物: ${currentCrop || '未指定'}`)
     bot.chat(`跟随状态: ${isFollowing ? '开启' : '关闭'}`)
     bot.chat(`自动模式: ${isAutoMode ? '运行中' : '已停止'}`)
+    bot.chat(`食物值: ${bot.food}/20`)
 
     // 显示背包中种子的数量
     if (currentCrop) {
@@ -509,6 +584,9 @@ async function startAutoMode() {
     }
 
     try {
+        // 在自动模式开始前检查是否需要进食
+        await autoEat()
+
         // 重新扫描区域
         await scanFarmingAreas()
 
