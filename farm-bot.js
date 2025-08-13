@@ -395,7 +395,7 @@ async function plantCrops() {
         await new Promise(resolve => setTimeout(resolve, 200))
     }
 
-    bot.chat(`成功种植 ${plantedCount} 株 ${currentCrop}`)
+    console.log(`成功种植 ${plantedCount} 株 ${currentCrop}`)
     return plantedCount > 0
 }
 
@@ -436,7 +436,7 @@ async function harvestCrops() {
     }
 
     if (harvestedCount > 0) {
-        bot.chat(`成功收获 ${harvestedCount} 株作物`)
+        console.log(`成功收获 ${harvestedCount} 株作物`)
         // 收获后自动存储到箱子
         await storeItems()
     }
