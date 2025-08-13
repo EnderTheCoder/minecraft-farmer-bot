@@ -7,8 +7,7 @@ const serverConfig = {
     host: process.env.MINECRAFT_HOST || 'localhost',
     port: parseInt(process.env.MINECRAFT_PORT) || 25565,
     username: process.env.MINECRAFT_USERNAME || 'FarmerBot',
-    version: process.env.MINECRAFT_VERSION || '1.21.5',
-    // password: process.env.MINECRAFT_PASSWORD || undefined,
+    version: process.env.MINECRAFT_VERSION || '1.21.5', // password: process.env.MINECRAFT_PASSWORD || undefined,
     // auth: process.env.MINECRAFT_AUTH || 'microsoft',
 }
 
@@ -105,6 +104,7 @@ async function autoEat() {
 // 注册bot事件监听器
 function registerBotEvents() {
     // 指令处理
+    // 指令处理
     bot.on('chat', async (username, message) => {
         if (username === bot.username) return
 
@@ -113,7 +113,13 @@ function registerBotEvents() {
 
         targetPlayer = player
 
-        const args = message.split(' ')
+        // 新增逻辑：仅当消息以 bot 的用户名为前缀时才处理指令
+        const prefix = `${bot.username} `
+        if (!message.startsWith(prefix)) return
+
+        // 提取消息中真正的指令内容（去掉 bot 名称）
+        const cleanMessage = message.slice(prefix.length).trim()
+        const args = cleanMessage.split(' ')
         const command = args[0].toLowerCase()
 
         switch (command) {
@@ -180,6 +186,7 @@ function registerBotEvents() {
                 bot.chat('可用指令: follow, stop, plant <作物>, harvest, store, scan, status, eat')
         }
     })
+
 
     // 跟随玩家
     function followPlayer() {
@@ -450,7 +457,7 @@ async function storeItems() {
     })
 
     if (chestBlocks.length === 0) {
-        bot.chat('附近没有找到箱子')
+        console.log('附近没有找到箱子')
         return false
     }
 
@@ -494,7 +501,7 @@ async function storeItems() {
     }
 
     if (!hasItemsToStore) {
-        bot.chat('没有需要存储的物品')
+        console.log('没有需要存储的物品')
         return false
     }
 
@@ -551,9 +558,9 @@ async function storeItems() {
     }
 
     if (storedCount > 0) {
-        bot.chat(`成功存储 ${storedCount} 个物品到箱子`)
+        console.log(`成功存储 ${storedCount} 个物品到箱子`)
     } else {
-        bot.chat('没有需要存储的物品或存储完成')
+        console.log('没有需要存储的物品或存储完成')
     }
 
     return storedCount > 0
@@ -598,7 +605,7 @@ async function startAutoMode() {
         // 1. 先收获成熟的作物
         const matureCrops = Array.from(farmingAreas.values()).filter(area => area.isMature)
         if (matureCrops.length > 0) {
-            bot.chat(`发现 ${matureCrops.length} 株成熟作物`)
+            console.log(`发现 ${matureCrops.length} 株成熟作物`)
             await harvestCrops()
         }
 
